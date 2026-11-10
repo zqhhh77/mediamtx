@@ -5,12 +5,11 @@
 ```yaml
 ws: true
 wsAddress: :8894
-wsAllowOrigins: [https://player.example.com]
 paths:
   camera/001:
 ```
 
-发布端继续推送 `rtsp://主机:8554/camera/001`。观看端使用 `ws://主机:8894/camera/001`，同一路径可以同时通过 WebRTC、HLS、RTSP、WS 读取。多级目录原样保留。环境变量为 `MTX_WS=true`、`MTX_WSADDRESS=:8894`、`MTX_WSALLOWORIGINS=https://player.example.com`；配置文件和现有配置 API 的修改会重建 WS 监听器并关闭旧连接。
+发布端继续推送 `rtsp://主机:8554/camera/001`。观看端使用 `ws://主机:8894/camera/001`，同一路径可以同时通过 WebRTC、HLS、RTSP、WS 读取。多级目录原样保留。环境变量为 `MTX_WS=true`、`MTX_WSADDRESS=:8894`；配置文件和现有配置 API 的修改会重建 WS 监听器并关闭旧连接。
 
 每个 WS 连接注册为现有 path 的一个 reader，复用 read 权限、按需源、最大读取者限制、`runOnRead` / `runOnUnread`。`MTX_READER_TYPE=wsSession`，`MTX_READER_ID` 为连接 UUID。path API 的 readers 会显示此类型；没有新增独立 WS 会话管理 API。原本仅匹配 `webRTCSession` 的外部关键帧脚本需要自行适配，tdt-media-stream 不调用厂商 SDK。
 
@@ -18,7 +17,7 @@ paths:
 
 支持现有 HTTP Basic / Bearer 请求头；浏览器原生 WebSocket 可用 URL 查询参数 `user` / `pass` 或 `token`。例如 `new WebSocket('wss://video.example.com/ws/camera/001?token=' + encodeURIComponent(token))`。外部 HTTP 鉴权收到 `protocol=ws`、`action=read`，凭据进入原有认证流程；JWT 的过期时间也会终止会话。tdt-media-stream 的 HTTP 调试日志会隐去上述查询凭据；代理也应避免记录带凭据的完整 URL。查询仍按原有规则传给鉴权服务和读取钩子，钩子应按敏感信息处理。
 
-默认仅允许同源浏览器或不带 Origin 的非浏览器客户端；跨域播放器应显式填写 `wsAllowOrigins`，匹配方式与现有 HTTP 输出相同。反向代理应保留 Host / Origin，不使用转发头替代鉴权 IP，WS 看到的是直接连接方地址。TLS 由代理终止：
+WS 不校验 Origin，允许任意来源的浏览器连接，无需配置来源白名单。读取权限由现有 read 鉴权控制。不使用转发头替代鉴权 IP，WS 看到的是直接连接方地址。TLS 由代理终止：
 
 ```nginx
 location /ws/ {
@@ -31,7 +30,7 @@ location /ws/ {
 }
 ```
 
-升级前，参数/编码错误返回 400、鉴权失败 401、来源拒绝 403、无流 404、依赖不可用 503，HTTP 错误体统一为 `{"code":状态码,"message":"中文说明","data":null}`。升级后使用二进制媒体消息。
+升级前，参数/编码错误返回 400、鉴权失败 401、无流 404、依赖不可用 503，HTTP 错误体统一为 `{"code":状态码,"message":"中文说明","data":null}`。升级后使用二进制媒体消息。
 
 ## 消息合同
 
@@ -54,4 +53,4 @@ codec 值 4 为 H.264，5 为 H.265。profile/level 与参考服务一致，分�
 
 GitHub Actions 的 `websocket` workflow 执行竞态测试、现有输出服务器回归，生成 `tdt-media-stream-linux-amd64` 与 `tdt-media-stream-windows-amd64.exe` 及本说明和验证页。集成测试以 RTSP 发布，核对三个 WS 共享读取者、H.264/H.265 首包/首帧、100 次加入退出及源退出 EOS。浏览器测试还保存真实 WS 消息，将 NALU 还原为 Annex B 后用 FFmpeg 验证连续解码；这是 CI 验证工具，服务端输出不依赖 FFmpeg。请以实际 Actions 运行结果判定构建是否通过。
 
-现场验收仍需：真实摄像机、MiBeeNvr 解析/硬解/WASM 分别验证、同源与外部鉴权、慢连接与 WebRTC/HLS 同时观看、至少 30 分钟播放、首帧 10 次中位数/P95 和可靠画面时钟延迟。单元/集成测试不等于设备或延迟验收，也不预先承诺 WS 比 WebRTC 快。
+现场验收仍需：真实摄像机、MiBeeNvr 解析/硬解/WASM 分别验证、跨域连接与外部鉴权、慢连接与 WebRTC/HLS 同时观看、至少 30 分钟播放、首帧 10 次中位数/P95 和可靠画面时钟延迟。单元/集成测试不等于设备或延迟验收，也不预先承诺 WS 比 WebRTC 快。

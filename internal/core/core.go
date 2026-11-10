@@ -924,7 +924,6 @@ func (p *Core) createResources(initial bool) error {
 	if p.conf.WS && p.wsServer == nil {
 		i := &ws.Server{
 			Address:         p.conf.WSAddress,
-			AllowOrigins:    p.conf.WSAllowOrigins,
 			ReadTimeout:     p.conf.ReadTimeout,
 			WriteTimeout:    p.conf.WriteTimeout,
 			ExternalCmdPool: p.externalCmdPool,
@@ -1276,7 +1275,6 @@ func (p *Core) closeResources(newConf *conf.Conf) error {
 	closeWSServer := newConf == nil ||
 		newConf.WS != p.conf.WS ||
 		newConf.WSAddress != p.conf.WSAddress ||
-		!slices.Equal(newConf.WSAllowOrigins, p.conf.WSAllowOrigins) ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		closePathManager

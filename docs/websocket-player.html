@@ -29,7 +29,7 @@ document.querySelector('#play').onclick=()=>{
   if(!globalThis.VideoDecoder){status.textContent='当前环境不支持 WebCodecs，请使用 localhost / HTTPS 及支持的浏览器';return;}
   const ws=new WebSocket(input.value);socket=ws;ws.binaryType='arraybuffer';
   status.textContent='连接中，等待参数和关键帧';
-  ws.onerror=()=>{if(socket===ws)status.textContent='连接失败，请检查路径、鉴权、来源配置和服务日志';};
+  ws.onerror=()=>{if(socket===ws)status.textContent='连接失败，请检查路径、鉴权和服务日志';};
   ws.onclose=()=>{if(socket===ws)status.textContent+='\n连接已结束';};
   ws.onmessage=({data})=>{
     if(socket!==ws)return;

@@ -70,7 +70,9 @@ func TestWebSocketRTSPSharedReaders(t *testing.T) {
 			}()
 			defer func() { close(stop); <-done }()
 			connect := func() *websocket.Conn {
-				conn, _, err := websocket.DefaultDialer.Dial("ws://127.0.0.1:8894/camera/001", nil)
+				conn, _, err := websocket.DefaultDialer.Dial("ws://127.0.0.1:8894/camera/001", http.Header{
+					"Origin": []string{"https://player.example.com"},
+				})
 				require.NoError(t, err)
 				require.NoError(t, conn.SetReadDeadline(time.Now().Add(3*time.Second)))
 				typ, ci, err := conn.ReadMessage()
@@ -171,8 +173,8 @@ func TestWebSocketAccess(t *testing.T) {
 	require.NotNil(t, res)
 	require.Equal(t, http.StatusNotFound, res.StatusCode)
 	res.Body.Close()
-	_, res, err = websocket.DefaultDialer.Dial("ws://127.0.0.1:8894/camera/001", http.Header{"Origin": []string{"https://evil.example"}})
+	_, res, err = websocket.DefaultDialer.Dial("ws://127.0.0.1:8894/camera/001", http.Header{"Origin": []string{"https://player.example.com"}})
 	require.Error(t, err)
-	require.Equal(t, http.StatusForbidden, res.StatusCode)
+	require.Equal(t, http.StatusNotFound, res.StatusCode)
 	res.Body.Close()
 }

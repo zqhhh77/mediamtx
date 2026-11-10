@@ -57,6 +57,7 @@ func TestHTTPFailures(t *testing.T) {
 			}}
 			s := &Server{ctx: context.Background(), PathManager: pm, Parent: &test.ServerParent{}}
 			r := httptest.NewRequest(http.MethodGet, "http://localhost/camera/001?user=viewer&pass=secret", nil)
+			r.Header.Set("Origin", "https://player.example.com")
 			w := httptest.NewRecorder()
 			s.serveHTTP(w, r)
 			require.Equal(t, ca.status, w.Code)

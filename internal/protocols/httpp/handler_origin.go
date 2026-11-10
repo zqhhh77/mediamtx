@@ -8,8 +8,7 @@ import (
 	"strings"
 )
 
-// IsOriginAllowed checks an origin against the configured HTTP origin patterns.
-func IsOriginAllowed(origin string, allowOrigins []string) bool {
+func isOriginAllowed(origin string, allowOrigins []string) bool {
 	if len(allowOrigins) == 0 {
 		return false
 	}
@@ -78,7 +77,7 @@ type handlerOrigin struct {
 func (h *handlerOrigin) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	origin := r.Header.Get("Origin")
 
-	if origin != "" && IsOriginAllowed(origin, h.allowOrigins) {
+	if origin != "" && isOriginAllowed(origin, h.allowOrigins) {
 		w.Header().Set("Access-Control-Allow-Origin", origin)
 		w.Header().Set("Vary", "Origin")
 	}
@@ -86,7 +85,7 @@ func (h *handlerOrigin) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
 		secFetchSite := r.Header.Get("Sec-Fetch-Site")
 		if secFetchSite == "same-site" || secFetchSite == "cross-site" {
-			if !IsOriginAllowed(origin, h.allowOrigins) {
+			if !isOriginAllowed(origin, h.allowOrigins) {
 				w.WriteHeader(http.StatusForbidden)
 				return
 			}

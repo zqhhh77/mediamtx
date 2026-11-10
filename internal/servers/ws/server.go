@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
@@ -40,7 +39,6 @@ type serverParent interface {
 // Server is an encoded video WebSocket server. TLS is terminated by a reverse proxy.
 type Server struct {
 	Address         string
-	AllowOrigins    []string
 	ReadTimeout     conf.Duration
 	WriteTimeout    conf.Duration
 	ExternalCmdPool *externalcmd.Pool
@@ -57,7 +55,6 @@ func (s *Server) Initialize() error {
 	s.ctx, s.cancel = context.WithCancel(context.Background())
 	s.inner = &httpp.Server{
 		Address:       s.Address,
-		AllowOrigins:  s.AllowOrigins,
 		ReadTimeout:   time.Duration(s.ReadTimeout),
 		WriteTimeout:  time.Duration(s.WriteTimeout),
 		Handler:       http.HandlerFunc(s.serveHTTP),
@@ -134,23 +131,9 @@ func (s *Server) serveHTTP(w http.ResponseWriter, r *http.Request) {
 	upgrader := websocket.Upgrader{
 		HandshakeTimeout: time.Duration(s.WriteTimeout),
 		Error: func(w http.ResponseWriter, _ *http.Request, status int, _ error) {
-			writeHTTPError(w, status, "WebSocket 握手失败或来源未获允许")
+			writeHTTPError(w, status, "WebSocket 握手失败")
 		},
-		CheckOrigin: func(r *http.Request) bool {
-			origin := r.Header.Get("Origin")
-			if origin == "" {
-				return true
-			}
-			u, err := url.Parse(origin)
-			if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
-				return false
-			}
-			return strings.EqualFold(u.Host, r.Host) || httpp.IsOriginAllowed(origin, s.AllowOrigins)
-		},
-	}
-	if !upgrader.CheckOrigin(r) {
-		writeHTTPError(w, http.StatusForbidden, "请求来源未获允许")
-		return
+		CheckOrigin: func(_ *http.Request) bool { return true },
 	}
 	ctx, cancel := context.WithCancel(s.ctx)
 	defer cancel()

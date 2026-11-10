@@ -380,8 +380,6 @@ hlsCDNSecret: ""
 # Reads the same shared paths as WebRTC / HLS; RTSP publishing is unchanged.
 ws: false
 wsAddress: :8894
-# Empty means same-origin browser requests only; use explicit origins for other players.
-wsAllowOrigins: []
 
 ###############################################
 # Global settings -> WebRTC server

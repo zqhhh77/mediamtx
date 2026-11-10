@@ -697,10 +697,6 @@ components:
           description: MiBeeNvr-compatible encoded video WebSocket output
         wsAddress:
           type: string
-        wsAllowOrigins:
-          type: array
-          items:
-            type: string
         webrtc:
           type: boolean
           description: WebRTC server

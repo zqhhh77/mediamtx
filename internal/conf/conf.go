@@ -383,9 +383,8 @@ type Conf struct {
 	HLSCDNSecret       string     `json:"hlsCDNSecret"`
 
 	// WebSocket encoded video server
-	WS             bool     `json:"ws"`
-	WSAddress      string   `json:"wsAddress"`
-	WSAllowOrigins []string `json:"wsAllowOrigins"`
+	WS        bool   `json:"ws"`
+	WSAddress string `json:"wsAddress"`
 
 	// WebRTC server
 	WebRTC                             bool              `json:"webrtc"`
