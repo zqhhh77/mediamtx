@@ -74,7 +74,7 @@ jobs:
           test "$(docker run --rm "$IMAGE:$VERSION" --version)" = "$GITHUB_REF_NAME"
           docker run -d --name tdt-release-smoke -p 127.0.0.1:18894:8894 "$IMAGE:$VERSION"
           trap 'docker logs tdt-release-smoke; docker rm -f tdt-release-smoke' EXIT
-          test "$(curl --retry 10 --retry-delay 1 --retry-connrefused -sS -o /tmp/ws-response.json -w '%{http_code}' -H 'Origin: https://player.example.com' http://127.0.0.1:18894/no-source)" = 404
+          test "$(curl --retry 10 --retry-delay 1 --retry-all-errors --retry-connrefused -sS -o /tmp/ws-response.json -w '%{http_code}' -H 'Origin: https://player.example.com' http://127.0.0.1:18894/no-source)" = 404
           python -c 'import json; r=json.load(open("/tmp/ws-response.json")); assert r["code"] == 404 and r["message"] and r["data"] is None'
       - name: Install browser validation tools
         run: |
