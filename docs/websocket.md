@@ -2,6 +2,8 @@
 
 在现有 RTSP 发布、WebRTC 和 HLS 之外，新增 MiBeeNvr 视频协议兼容的 WebSocket 读取出口。直接订阅 tdt-media-stream 的共享 path，不另建 RTSP 拉流客户端，不解码、不转码。默认关闭。
 
+业务后端及播放器接入请参阅 [WebSocket 推流与客户端对接](websocket-integration.md)，包含 RTSP 与 WS 地址对应关系、地址生成代码、鉴权、二进制解析及播放示例。
+
 ```yaml
 ws: true
 wsAddress: :8894

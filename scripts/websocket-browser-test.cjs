@@ -12,7 +12,10 @@ async function main() {
   let serverLog = '';
   fs.mkdirSync('tmp/ws-browser-results', { recursive: true });
   fs.writeFileSync('tmp/ws-browser.yml', 'rtspTransports: [tcp]\nrtmp: false\nhls: false\nwebrtc: false\nsrt: false\nmoq: false\nws: true\npaths:\n  all_others:\n');
-  const server = spawn('./binaries/tdt-media-stream-linux-amd64', ['tmp/ws-browser.yml']);
+  const server = process.env.WS_TEST_IMAGE
+    ? spawn('docker', ['run', '--rm', '--network', 'host',
+      '-v', `${process.cwd()}/tmp/ws-browser.yml:/config.yml:ro`, process.env.WS_TEST_IMAGE, '/config.yml'])
+    : spawn('./binaries/tdt-media-stream-linux-amd64', ['tmp/ws-browser.yml']);
   children.push(server);
   server.stdout.on('data', b => { serverLog += b; });
   server.stderr.on('data', b => { serverLog += b; });

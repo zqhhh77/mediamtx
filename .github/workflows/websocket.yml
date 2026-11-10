@@ -32,6 +32,7 @@ jobs:
           CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -o binaries/tdt-media-stream-windows-amd64.exe .
           cp mediamtx.yml binaries/
           cp docs/websocket.md binaries/
+          cp docs/websocket-integration.md binaries/
           cp docs/websocket-player.html binaries/
       - name: Check program name
         run: ./binaries/tdt-media-stream-linux-amd64 --help | grep tdt-media-stream

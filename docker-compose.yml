@@ -1,0 +1,15 @@
+services:
+  tdt-media-stream:
+    image: ghcr.io/zqhhh77/tdt-media-stream:1.0.0
+    restart: unless-stopped
+    ports:
+      - "8554:8554"       # RTSP over TCP
+      - "8894:8894"       # WebSocket video
+      - "8888:8888"       # HLS
+      - "8889:8889"       # WebRTC HTTP
+      - "8189:8189/udp"   # WebRTC media
+    environment:
+      MTX_WS: "true"
+      MTX_RTSPTRANSPORTS: tcp
+    volumes:
+      - ./mediamtx.yml:/mediamtx.yml:ro

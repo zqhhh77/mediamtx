@@ -2,160 +2,154 @@ name: release
 
 on:
   push:
-    tags:
-      - "v*"
+    tags: ["v*"]
 
 permissions:
-  id-token: write
-  attestations: write
-  artifact-metadata: write
-  contents: write
-  issues: write
-  pull-requests: write
+  contents: read
 
 jobs:
-  binaries:
+  verify:
     runs-on: ubuntu-24.04
-
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
-
-      - run: make binaries
-
-      - run: cd binaries && sha256sum -b * > checksums.sha256
-
-      - uses: actions/attest@v4.2.2
         with:
-          subject-path: "${{ github.workspace }}/binaries/*"
+          fetch-depth: 0
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - run: go generate ./...
+      - name: Test shared streams, authentication and output servers
+        run: go test -race -timeout 10m ./internal/servers/... ./internal/core ./internal/conf ./internal/auth ./internal/stream ./internal/protocols/httpp
 
+  binaries:
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - run: make binaries
       - uses: actions/upload-artifact@v7
         with:
-          name: binaries
-          path: binaries
+          name: release-binaries
+          path: binaries/
 
-  github_release:
+  docker:
     needs: binaries
     runs-on: ubuntu-24.04
-
-    steps:
-      - uses: actions/download-artifact@v8
-        with:
-          name: binaries
-          path: binaries
-
-      - uses: actions/github-script@v9
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const fs = require('fs').promises;
-            const { repo: { owner, repo } } = context;
-
-            const currentRelease = context.ref.split('/')[2];
-
-            let body = `## New major features\n`
-              + `\n`
-              + `TODO\n`
-              + `\n`
-              + `## Fixes and improvements\n`
-              + `\n`
-              + `TODO\n`
-              + `\n`
-              + `## Security\n`
-              + `\n`
-              + `Binaries are compiled from source code by the [Release workflow](https://github.com/${owner}/${repo}/actions/workflows/release.yml), which is a fully-visible process that prevents any change or external interference in produced artifacts.\n`
-              + `\n`
-              + 'Checksums of binaries are also published in a public blockchain by using [GitHub Attestations](https://docs.github.com/en/actions/concepts/security/artifact-attestations), and they can be verified by running:\n'
-              + `\n`
-              + '```\n'
-              + `ls tdt-media-stream_* | xargs -L1 gh attestation verify --repo ${owner}/${repo}\n`
-              + '```\n'
-              + `\n`
-              + 'You can verify checksums of binaries by downloading `checksums.sha256` and running:\n'
-              + `\n`
-              + '```\n'
-              + `cat checksums.sha256 | grep "$(ls tdt-media-stream_*)" | sha256sum --check\n`
-              + '```\n'
-              + `\n`;
-
-            const res = await github.rest.repos.createRelease({
-              owner,
-              repo,
-              tag_name: currentRelease,
-              name: currentRelease,
-              body,
-            });
-            const release_id = res.data.id;
-
-            for (const name of await fs.readdir('./binaries/')) {
-              await github.rest.repos.uploadReleaseAsset({
-                owner,
-                repo,
-                release_id,
-                name,
-                data: await fs.readFile(`./binaries/${name}`),
-              });
-            }
-
-  github_notify_issues:
-    needs: github_release
-    runs-on: ubuntu-24.04
-
-    steps:
-      - uses: actions/github-script@v9
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const { repo: { owner, repo } } = context;
-
-            const tags = await github.rest.repos.listTags({
-              owner,
-              repo,
-            });
-
-            const curTag = tags.data[0];
-            const prevTag = tags.data[1];
-
-            const diff = await github.rest.repos.compareCommitsWithBasehead({
-              owner,
-              repo,
-              basehead: `${prevTag.commit.sha}...${curTag.commit.sha}`,
-            });
-
-            const issues = {};
-
-            for (const commit of diff.data.commits) {
-              for (const match of commit.commit.message.matchAll(/(^| |\()#([0-9]+)( |\)|$)/g)) {
-                issues[match[2]] = 1;
-              }
-            }
-
-            for (const issue in issues) {
-              try {
-                await github.rest.issues.createComment({
-                  owner,
-                  repo,
-                  issue_number: parseInt(issue),
-                  body: `This issue is mentioned in release ${curTag.name} 🚀\n`
-                    + `Check out the entire changelog by [clicking here](https://github.com/${owner}/${repo}/releases/tag/${curTag.name})`,
-                });
-              } catch (exc) {
-                console.error(exc.toString());
-              }
-            }
-
-  dockerhub:
-    needs: binaries
-    runs-on: ubuntu-24.04
-
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE: ghcr.io/${{ github.repository_owner }}/tdt-media-stream
+    outputs:
+      digest: ${{ steps.publish.outputs.digest }}
     steps:
       - uses: actions/checkout@v7
-
       - uses: actions/download-artifact@v8
         with:
-          name: binaries
-          path: binaries
-
-      - run: make dockerhub
+          name: release-binaries
+          path: binaries/
+      - name: Set image version
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - name: Build image for container validation
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/tdt.Dockerfile
+          platforms: linux/amd64
+          load: true
+          tags: ${{ env.IMAGE }}:${{ env.VERSION }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.version=${{ github.ref_name }}
+            org.opencontainers.image.revision=${{ github.sha }}
+      - name: Check container version and default WS listener
+        run: |
+          test "$(docker run --rm "$IMAGE:$VERSION" --version)" = "$GITHUB_REF_NAME"
+          docker run -d --name tdt-release-smoke -p 127.0.0.1:18894:8894 "$IMAGE:$VERSION"
+          trap 'docker logs tdt-release-smoke; docker rm -f tdt-release-smoke' EXIT
+          test "$(curl --retry 10 --retry-delay 1 --retry-connrefused -sS -o /tmp/ws-response.json -w '%{http_code}' -H 'Origin: https://player.example.com' http://127.0.0.1:18894/no-source)" = 404
+          python -c 'import json; r=json.load(open("/tmp/ws-response.json")); assert r["code"] == 404 and r["message"] and r["data"] is None'
+      - name: Install browser validation tools
+        run: |
+          command -v ffmpeg || (sudo apt-get update && sudo apt-get install -y ffmpeg)
+          npm install --prefix tmp/ws-browser --no-save --package-lock=false playwright
+          tmp/ws-browser/node_modules/.bin/playwright install --with-deps chromium
+      - name: Validate RTSP input and WS playback against the Docker image
+        run: node scripts/websocket-browser-test.cjs
         env:
-          DOCKER_USER: ${{ secrets.DOCKER_USER }}
-          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+          WS_TEST_IMAGE: ${{ env.IMAGE }}:${{ env.VERSION }}
+      - name: Save offline Docker image
+        run: |
+          mkdir -p image
+          docker save "$IMAGE:$VERSION" | gzip > "image/tdt-media-stream_${GITHUB_REF_NAME}_docker_amd64.tar.gz"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-docker-image
+          path: image/
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish AMD64 and ARM64 images
+        id: publish
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/tdt.Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:${{ env.VERSION }}
+            ${{ env.IMAGE }}:latest
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.version=${{ github.ref_name }}
+            org.opencontainers.image.revision=${{ github.sha }}
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: release-browser-results
+          path: tmp/ws-browser-results/
+
+  github_release:
+    needs: [binaries, docker]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      IMAGE_DIGEST: ${{ needs.docker.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-binaries
+          path: release/
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-docker-image
+          path: release/
+      - name: Prepare release files and checksums
+        run: |
+          cp mediamtx.yml docker-compose.yml LICENSE docs/websocket.md docs/websocket-integration.md docs/websocket-player.html release/
+          cd release
+          sha256sum -- * > checksums.sha256
+      - name: Publish version and assets
+        run: |
+          cp "docs/releases/$GITHUB_REF_NAME.md" /tmp/release-notes.md
+          printf '\n镜像索引摘要：`%s`\n' "$IMAGE_DIGEST" >> /tmp/release-notes.md
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release edit "$GITHUB_REF_NAME" --title "tdt-media-stream $GITHUB_REF_NAME" --notes-file /tmp/release-notes.md
+          else
+            gh release create "$GITHUB_REF_NAME" --verify-tag --draft --title "tdt-media-stream $GITHUB_REF_NAME" --notes-file /tmp/release-notes.md
+          fi
+          gh release upload "$GITHUB_REF_NAME" release/* --clobber
+          gh release edit "$GITHUB_REF_NAME" --draft=false --latest
