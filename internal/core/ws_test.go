@@ -2,7 +2,14 @@ package core
 
 import (
 	"encoding/binary"
+	"encoding/json"
+	"fmt"
 	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -20,7 +27,13 @@ import (
 func TestWebSocketRTSPSharedReaders(t *testing.T) {
 	for _, codec := range []string{"h264", "h265"} {
 		t.Run(codec, func(t *testing.T) {
-			p, ok := newInstance(t, "rtspTransports: [tcp]\nrtmp: no\nhls: no\nwebrtc: no\nsrt: no\nmoq: no\nws: yes\npaths:\n  camera/001:\n")
+			config := "rtspTransports: [tcp]\nrtmp: no\nhls: no\nwebrtc: no\nsrt: no\nmoq: no\nws: yes\npaths:\n  camera/001:\n"
+			hookFile := filepath.ToSlash(filepath.Join(t.TempDir(), "hooks"))
+			if runtime.GOOS != "windows" {
+				config += fmt.Sprintf("    runOnRead: sh -c 'echo read:$MTX_READER_TYPE >> %s'\n"+
+					"    runOnUnread: sh -c 'echo unread:$MTX_READER_TYPE >> %s'\n", hookFile, hookFile)
+			}
+			p, ok := newInstance(t, config)
 			require.True(t, ok)
 			defer p.Close()
 			medi := test.UniqueMediaH264()
@@ -95,6 +108,12 @@ func TestWebSocketRTSPSharedReaders(t *testing.T) {
 				item, err := p.pathManager.APIPathsGet("camera/001")
 				return err == nil && len(item.Readers) == 0
 			}, 3*time.Second, 10*time.Millisecond)
+			if runtime.GOOS != "windows" {
+				require.Eventually(t, func() bool {
+					b, _ := os.ReadFile(hookFile)
+					return strings.Contains(string(b), "read:wsSession") && strings.Contains(string(b), "unread:wsSession")
+				}, 3*time.Second, 10*time.Millisecond)
+			}
 			c := connect()
 			publisher.Close()
 			for {
@@ -108,6 +127,38 @@ func TestWebSocketRTSPSharedReaders(t *testing.T) {
 			}
 			c.Close()
 		})
+	}
+}
+
+func TestWebSocketHTTPAuthentication(t *testing.T) {
+	requests := make(chan map[string]any, 2)
+	authServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			w.WriteHeader(400)
+			return
+		}
+		requests <- body
+		w.WriteHeader(200)
+	}))
+	defer authServer.Close()
+	p, ok := newInstance(t, "rtsp: no\nrtmp: no\nhls: no\nwebrtc: no\nsrt: no\nmoq: no\nws: yes\nauthMethod: http\nauthHTTPAddress: "+authServer.URL+"\npaths:\n  camera/001:\n")
+	require.True(t, ok)
+	defer p.Close()
+	_, res, err := websocket.DefaultDialer.Dial("ws://127.0.0.1:8894/camera/001?user=viewer&pass=secret", nil)
+	require.Error(t, err)
+	require.NotNil(t, res)
+	require.Equal(t, http.StatusNotFound, res.StatusCode)
+	res.Body.Close()
+	select {
+	case body := <-requests:
+		require.Equal(t, "ws", body["protocol"])
+		require.Equal(t, "read", body["action"])
+		require.Equal(t, "camera/001", body["path"])
+		require.Equal(t, "viewer", body["user"])
+		require.Equal(t, "secret", body["password"])
+	case <-time.After(time.Second):
+		t.Fatal("external authentication was not invoked")
 	}
 }
 

@@ -32,7 +32,19 @@ jobs:
           cp mediamtx.yml binaries/
           cp docs/websocket.md binaries/
           cp docs/websocket-player.html binaries/
+      - name: Install browser validation tools
+        run: |
+          command -v ffmpeg || (sudo apt-get update && sudo apt-get install -y ffmpeg)
+          npm install --prefix tmp/ws-browser --no-save --package-lock=false playwright
+          tmp/ws-browser/node_modules/.bin/playwright install --with-deps chromium
+      - name: Validate real RTSP input and browser video
+        run: node scripts/websocket-browser-test.cjs
       - uses: actions/upload-artifact@v7
         with:
           name: mediamtx-websocket
           path: binaries/
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: websocket-browser-results
+          path: tmp/ws-browser-results/
