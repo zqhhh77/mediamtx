@@ -1,6 +1,7 @@
 package stream
 
 import (
+	"sync"
 	"testing"
 	"time"
 
@@ -15,7 +16,11 @@ func TestReaderCloseOnQueueFull(t *testing.T) {
 	r.push(func() error { close(entered); <-release; return nil })
 	<-entered
 	r.push(func() error { t.Error("queued frame must not be sent after overflow"); return nil })
-	r.push(func() error { t.Error("overflow frame must not be sent"); return nil })
+	var writers sync.WaitGroup
+	for range 8 {
+		writers.Go(func() { r.push(func() error { t.Error("overflow frame must not be sent"); return nil }) })
+	}
+	writers.Wait()
 	close(release)
 	select {
 	case err := <-r.Error():

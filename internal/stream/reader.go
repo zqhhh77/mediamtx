@@ -2,6 +2,7 @@ package stream
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/description"
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
@@ -29,6 +30,7 @@ type Reader struct {
 	strictQueue             chan func() error
 	strictStop              chan struct{}
 	strictOverflow          chan struct{}
+	strictOverflowOnce      sync.Once
 
 	// out
 	err chan error
@@ -174,7 +176,7 @@ func (r *Reader) push(cb func() error) {
 		select {
 		case r.strictQueue <- cb:
 		default:
-			close(r.strictOverflow)
+			r.strictOverflowOnce.Do(func() { close(r.strictOverflow) })
 		}
 		return
 	}

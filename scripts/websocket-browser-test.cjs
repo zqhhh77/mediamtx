@@ -7,6 +7,7 @@ const assert = require('node:assert/strict');
 
 async function main() {
   const children = [];
+	process.on('exit', () => { for (const child of children) child.kill('SIGTERM'); });
   const report = [];
   let serverLog = '';
   fs.mkdirSync('tmp/ws-browser-results', { recursive: true });
@@ -22,6 +23,7 @@ async function main() {
   await new Promise(resolve => web.listen(8895, '127.0.0.1', resolve));
   const browser = await chromium.launch({ headless: true });
   const page = await browser.newPage();
+  page.setDefaultTimeout(15000);
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
   try {
@@ -68,6 +70,7 @@ async function main() {
           } catch (e) { clearTimeout(timer); socket.close(); reject(e); }
         };
       }), codec);
+      assert(wire.reordered, `${codec}: B-frame PTS ordering was not exercised`);
       fs.writeFileSync(`tmp/ws-browser-results/${codec}-codec.bin`, Buffer.from(wire.ci));
       fs.writeFileSync(`tmp/ws-browser-results/${codec}-frame.bin`, Buffer.from(wire.firstFrame));
       await page.locator('#url').fill(`ws://127.0.0.1:8894/test/${codec}`);
@@ -96,4 +99,4 @@ async function main() {
   console.log(JSON.stringify(report, null, 2));
 }
 
-main().catch(e => { console.error(e); process.exitCode = 1; });
+main().catch(e => { console.error(e); process.exit(1); });
