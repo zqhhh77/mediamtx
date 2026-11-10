@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MediaMTX WebSocket 视频验证</title>
+<style>body{font:16px system-ui;max-width:1000px;margin:2rem auto;padding:0 1rem}input{width:70%;padding:.5rem}button{padding:.5rem}canvas{width:100%;background:#111}pre{white-space:pre-wrap}</style>
+<h1>WebSocket 视频验证</h1>
+<p>RTSP 推流后，填写同一路径的 WS 地址。需要 localhost 或 HTTPS 和支持对应编码的 WebCodecs 浏览器。</p>
+<label for="url">流地址</label>
+<input id="url" value="ws://localhost:8894/camera/001" autocomplete="off">
+<button id="play">播放</button><button id="stop">停止</button>
+<pre id="status" role="status">尚未连接</pre><canvas id="video"></canvas>
+<script type="module">
+const input=document.querySelector('#url'), status=document.querySelector('#status'), canvas=document.querySelector('canvas');
+const context=canvas.getContext('2d');
+let socket, decoder, frames=0;
+function stop(){socket?.close();socket=null;if(decoder?.state!=='closed')decoder?.close();decoder=null;}
+function codecString(codec,sps){
+  if(codec===4)return 'avc1.'+Array.from(sps.slice(1,4),v=>v.toString(16).padStart(2,'0')).join('');
+  const rbsp=[];for(let i=2;i<sps.length;i++){if(i>=4&&sps[i]===3&&sps[i-1]===0&&sps[i-2]===0)continue;rbsp.push(sps[i]);}
+  if(rbsp.length<13)throw Error('H.265 SPS 不完整');
+  let compat=0;for(let i=0;i<32;i++)compat+=((rbsp[2+(i>>3)]>>(7-i%8))&1)*2**i;
+  const constraints=rbsp.slice(6,12);while(constraints.length&&constraints.at(-1)===0)constraints.pop();
+  return 'hev1.'+['','A','B','C'][rbsp[1]>>6]+(rbsp[1]&31)+'.'+(compat>>>0).toString(16)+'.'+((rbsp[1]&32)?'H':'L')+rbsp[12]+constraints.map(v=>'.'+v.toString(16).padStart(2,'0')).join('');
+}
+document.querySelector('#stop').onclick=()=>{stop();status.textContent='已停止';};
+document.querySelector('#play').onclick=()=>{
+  stop();frames=0;
+  if(!globalThis.VideoDecoder){status.textContent='当前环境不支持 WebCodecs，请使用 localhost / HTTPS 及支持的浏览器';return;}
+  const ws=new WebSocket(input.value);socket=ws;ws.binaryType='arraybuffer';
+  status.textContent='连接中，等待参数和关键帧';
+  ws.onerror=()=>{if(socket===ws)status.textContent='连接失败，请检查路径、鉴权、来源配置和服务日志';};
+  ws.onclose=()=>{if(socket===ws)status.textContent+='\n连接已结束';};
+  ws.onmessage=({data})=>{
+    if(socket!==ws)return;
+    try{
+      const view=new DataView(data);let off=0;
+      function need(n){if(off+n>data.byteLength)throw Error('消息不完整');}
+      function u16(){need(2);const n=view.getUint16(off);off+=2;return n;}
+      function nalu(n){need(n);const b=new Uint8Array(data,off,n);off+=n;return b;}
+      if(view.getUint8(0)===1){
+        need(4);const codec=view.getUint8(1);off=4;
+        const sps=nalu(u16()),pps=nalu(u16());if(codec===5)nalu(u16());
+        if(codec!==4&&codec!==5)throw Error('不支持的编码');
+        const name=codecString(codec,sps);
+        decoder=new VideoDecoder({output(frame){try{canvas.width=frame.displayWidth;canvas.height=frame.displayHeight;context.drawImage(frame,0,0);status.textContent=`${name}，已显示 ${++frames} 帧`;}finally{frame.close();}},error(e){status.textContent='解码失败：'+e.message;stop();}});
+        decoder.configure({codec:name,optimizeForLatency:true});
+      }else if(view.getUint8(0)===2){
+        if(!decoder)throw Error('视频帧早于编码信息');
+        need(12);const timestamp=Number(view.getBigUint64(1))*1000000/90000,key=view.getUint8(9)!==0;off=10;
+        const count=u16(),nalus=[];let size=0;
+        for(let i=0;i<count;i++){need(4);const length=view.getUint32(off);off+=4;const n=nalu(length);nalus.push(n);size+=4+length;}
+        const annexb=new Uint8Array(size);let p=0;for(const n of nalus){annexb.set([0,0,0,1],p);annexb.set(n,p+4);p+=4+n.length;}
+        if(decoder.decodeQueueSize>60)throw Error('客户端解码积压，请重新连接');
+        decoder.decode(new EncodedVideoChunk({type:key?'key':'delta',timestamp:Math.round(timestamp),data:annexb}));
+      }else if(view.getUint8(0)===255){status.textContent+='\n视频已结束';stop();}
+      else throw Error('未知消息类型');
+    }catch(e){status.textContent='播放失败：'+e.message;stop();}
+  };
+};
+</script>
+</html>

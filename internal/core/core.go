@@ -39,6 +39,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/servers/rtsp"
 	"github.com/bluenviron/mediamtx/internal/servers/srt"
 	"github.com/bluenviron/mediamtx/internal/servers/webrtc"
+	"github.com/bluenviron/mediamtx/internal/servers/ws"
 	"github.com/bluenviron/mediamtx/internal/upgrade"
 )
 
@@ -216,6 +217,7 @@ type Core struct {
 	rtmpsServer     *rtmp.Server
 	hlsServer       *hls.Server
 	webRTCServer    *webrtc.Server
+	wsServer        *ws.Server
 	srtServer       *srt.Server
 	moqServer       *moq.Server
 	api             *api.API
@@ -919,6 +921,22 @@ func (p *Core) createResources(initial bool) error {
 		p.hlsServer = i
 	}
 
+	if p.conf.WS && p.wsServer == nil {
+		i := &ws.Server{
+			Address:         p.conf.WSAddress,
+			AllowOrigins:    p.conf.WSAllowOrigins,
+			ReadTimeout:     p.conf.ReadTimeout,
+			WriteTimeout:    p.conf.WriteTimeout,
+			ExternalCmdPool: p.externalCmdPool,
+			PathManager:     p.pathManager,
+			Parent:          p,
+		}
+		if err := i.Initialize(); err != nil {
+			return err
+		}
+		p.wsServer = i
+	}
+
 	if p.conf.WebRTC &&
 		p.webRTCServer == nil {
 		i := &webrtc.Server{
@@ -1255,6 +1273,14 @@ func (p *Core) closeResources(newConf *conf.Conf) error {
 		closePathManager ||
 		closeMetrics
 
+	closeWSServer := newConf == nil ||
+		newConf.WS != p.conf.WS ||
+		newConf.WSAddress != p.conf.WSAddress ||
+		!slices.Equal(newConf.WSAllowOrigins, p.conf.WSAllowOrigins) ||
+		newConf.ReadTimeout != p.conf.ReadTimeout ||
+		newConf.WriteTimeout != p.conf.WriteTimeout ||
+		closePathManager
+
 	closeWebRTCServer := newConf == nil || //nolint:dupl
 		newConf.WebRTC != p.conf.WebRTC ||
 		newConf.WebRTCAddress != p.conf.WebRTCAddress ||
@@ -1354,6 +1380,11 @@ func (p *Core) closeResources(newConf *conf.Conf) error {
 	if closeMoQServer && p.moqServer != nil {
 		p.moqServer.Close()
 		p.moqServer = nil
+	}
+
+	if closeWSServer && p.wsServer != nil {
+		p.wsServer.Close()
+		p.wsServer = nil
 	}
 
 	if closeWebRTCServer && p.webRTCServer != nil {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"slices"
 	"strings"
 )
@@ -94,6 +95,18 @@ func RequestForLog(req *http.Request) string {
 	reqURI := req.RequestURI
 	if reqURI == "" {
 		reqURI = req.URL.RequestURI()
+	}
+	if u, err := url.Parse(reqURI); err == nil && (u.RawQuery != "" || u.User != nil) {
+		u.User = nil
+		q := u.Query()
+		for key := range q {
+			switch strings.ToLower(key) {
+			case "user", "pass", "password", "token":
+				q.Set(key, redactedCredential)
+			}
+		}
+		u.RawQuery = q.Encode()
+		reqURI = u.String()
 	}
 
 	fmt.Fprintf(&b, "%s %s HTTP/%d.%d\r\n", valueOrDefault(req.Method, "GET"),

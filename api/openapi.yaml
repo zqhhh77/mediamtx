@@ -130,6 +130,7 @@ components:
     PathReaderType:
       type: string
       enum:
+        - wsSession
         - hlsSession
         - rtmpConn
         - rtmpsConn
@@ -691,6 +692,15 @@ components:
         udpWriteBufferSize:
           type: integer
           format: uint64
+        ws:
+          type: boolean
+          description: MiBeeNvr-compatible encoded video WebSocket output
+        wsAddress:
+          type: string
+        wsAllowOrigins:
+          type: array
+          items:
+            type: string
         webrtc:
           type: boolean
           description: WebRTC server

@@ -18,12 +18,17 @@ type OnDataFunc func(*unit.Unit) error
 // Reader is a stream reader.
 type Reader struct {
 	SkipOutboundBytes bool
-	Parent            logger.Writer
+	// CloseOnQueueFull preserves inter-frame dependencies by failing instead of dropping frames.
+	CloseOnQueueFull bool
+	Parent           logger.Writer
 
 	onDatas                 map[*description.Media]map[format.Format]OnDataFunc
 	queueSize               int
 	buffer                  *ringbuffer.RingBuffer
 	outboundFramesDiscarded *counterdumper.Dumper
+	strictQueue             chan func() error
+	strictStop              chan struct{}
+	strictOverflow          chan struct{}
 
 	// out
 	err chan error
@@ -68,6 +73,9 @@ func (r *Reader) Formats() []format.Format {
 
 // OutboundFramesDiscarded returns the number of frames discarded because the reader is too slow.
 func (r *Reader) OutboundFramesDiscarded() uint64 {
+	if r.CloseOnQueueFull {
+		return 0
+	}
 	return r.outboundFramesDiscarded.Get()
 }
 
@@ -78,6 +86,14 @@ func (r *Reader) Error() chan error {
 }
 
 func (r *Reader) start() {
+	if r.CloseOnQueueFull {
+		r.strictQueue = make(chan func() error, r.queueSize)
+		r.strictStop = make(chan struct{})
+		r.strictOverflow = make(chan struct{})
+		r.err = make(chan error)
+		go r.run()
+		return
+	}
 	buffer, _ := ringbuffer.New(uint64(r.queueSize))
 	r.buffer = buffer
 	r.err = make(chan error)
@@ -100,6 +116,11 @@ func (r *Reader) start() {
 }
 
 func (r *Reader) stop() {
+	if r.CloseOnQueueFull {
+		close(r.strictStop)
+		<-r.err //nolint:errcheck
+		return
+	}
 	r.buffer.Close()
 	r.outboundFramesDiscarded.Stop()
 	<-r.err //nolint:errcheck
@@ -111,6 +132,25 @@ func (r *Reader) run() {
 }
 
 func (r *Reader) runInner() error {
+	if r.CloseOnQueueFull {
+		for {
+			select {
+			case <-r.strictStop:
+				return fmt.Errorf("terminated")
+			case <-r.strictOverflow:
+				return fmt.Errorf("reader queue is full")
+			case cb := <-r.strictQueue:
+				select {
+				case <-r.strictOverflow:
+					return fmt.Errorf("reader queue is full")
+				default:
+				}
+				if err := cb(); err != nil {
+					return err
+				}
+			}
+		}
+	}
 	for {
 		cb, ok := r.buffer.Pull()
 		if !ok {
@@ -125,6 +165,19 @@ func (r *Reader) runInner() error {
 }
 
 func (r *Reader) push(cb func() error) {
+	if r.CloseOnQueueFull {
+		select {
+		case <-r.strictOverflow:
+			return
+		default:
+		}
+		select {
+		case r.strictQueue <- cb:
+		default:
+			close(r.strictOverflow)
+		}
+		return
+	}
 	ok := r.buffer.Push(cb)
 	if !ok {
 		r.outboundFramesDiscarded.Increase()

@@ -30,7 +30,7 @@ func newInstance(t *testing.T, conf string, args ...string) (*Core, bool) {
 
 func TestCoreFatalError(t *testing.T) {
 	for _, name := range []string{
-		"rtsp", "rtsps", "rtmp", "rtmps", "hls", "webrtc", "srt", "moq",
+		"rtsp", "rtsps", "rtmp", "rtmps", "hls", "webrtc", "ws", "srt", "moq",
 		"api", "metrics", "pprof", "playback",
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -80,6 +80,8 @@ func TestCoreFatalError(t *testing.T) {
 				onFatalError = p.hlsServer.Parent.OnFatalError
 			case "webrtc":
 				onFatalError = p.webRTCServer.Parent.OnFatalError
+			case "ws":
+				onFatalError = p.wsServer.Parent.OnFatalError
 			case "srt":
 				onFatalError = p.srtServer.Parent.OnFatalError
 			case "moq":

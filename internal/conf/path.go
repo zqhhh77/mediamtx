@@ -210,7 +210,14 @@ func FindPathConf(pathConfs map[string]*Path, name string) (*Path, []string, err
 		}
 	}
 
-	return nil, nil, fmt.Errorf("path '%s' is not configured", name)
+	return nil, nil, &PathNotConfiguredError{Name: name}
+}
+
+// PathNotConfiguredError is returned when no configured path matches a name.
+type PathNotConfiguredError struct{ Name string }
+
+func (e *PathNotConfiguredError) Error() string {
+	return fmt.Sprintf("path '%s' is not configured", e.Name)
 }
 
 // Path is a path configuration.

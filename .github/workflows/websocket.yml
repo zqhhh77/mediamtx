@@ -1,0 +1,38 @@
+name: websocket
+
+on:
+  push:
+    branches: [feat/websocket-output]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: Generate embedded assets
+        run: go generate ./...
+      - name: Test WebSocket and connected packages with race detection
+        run: go test -race -timeout 10m ./internal/servers/ws ./internal/stream ./internal/auth ./internal/conf ./internal/protocols/httpp ./internal/core
+      - name: Test existing output servers
+        run: go test -race -timeout 10m ./internal/servers/...
+      - name: Build Linux and Windows binaries
+        run: |
+          mkdir -p binaries
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -o binaries/mediamtx-linux-amd64 .
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -o binaries/mediamtx-windows-amd64.exe .
+          cp mediamtx.yml binaries/
+          cp docs/websocket.md binaries/
+          cp docs/websocket-player.html binaries/
+      - uses: actions/upload-artifact@v7
+        with:
+          name: mediamtx-websocket
+          path: binaries/

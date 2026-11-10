@@ -51,6 +51,7 @@ type APIPathReaderType string
 // reader types.
 const (
 	APIPathReaderTypeHLSSession    APIPathReaderType = "hlsSession"
+	APIPathReaderTypeWSSession     APIPathReaderType = "wsSession"
 	APIPathReaderTypeRTMPConn      APIPathReaderType = "rtmpConn"
 	APIPathReaderTypeRTMPSConn     APIPathReaderType = "rtmpsConn"
 	APIPathReaderTypeRTSPConn      APIPathReaderType = "rtspConn"

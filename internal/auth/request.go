@@ -16,6 +16,7 @@ const (
 	ProtocolRTSP   Protocol = "rtsp"
 	ProtocolRTMP   Protocol = "rtmp"
 	ProtocolHLS    Protocol = "hls"
+	ProtocolWS     Protocol = "ws"
 	ProtocolWebRTC Protocol = "webrtc"
 	ProtocolSRT    Protocol = "srt"
 	ProtocolMoQ    Protocol = "moq"

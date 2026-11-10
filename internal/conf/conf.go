@@ -382,6 +382,11 @@ type Conf struct {
 	HLSMuxerCloseAfter Duration   `json:"hlsMuxerCloseAfter"`
 	HLSCDNSecret       string     `json:"hlsCDNSecret"`
 
+	// WebSocket encoded video server
+	WS             bool     `json:"ws"`
+	WSAddress      string   `json:"wsAddress"`
+	WSAllowOrigins []string `json:"wsAllowOrigins"`
+
 	// WebRTC server
 	WebRTC                             bool              `json:"webrtc"`
 	WebRTCDisable                      *bool             `json:"webrtcDisable,omitempty" deprecated:"true"`
@@ -525,6 +530,9 @@ func (conf *Conf) setDefaults() {
 	conf.HLSPartDuration = 200 * Duration(time.Millisecond)
 	conf.HLSSegmentMaxSize = 50 * 1024 * 1024
 	conf.HLSMuxerCloseAfter = 60 * Duration(time.Second)
+
+	// WebSocket encoded video server
+	conf.WSAddress = ":8894"
 
 	// WebRTC server
 	conf.WebRTC = true
@@ -829,6 +837,10 @@ func (conf *Conf) validate(l logger.Writer) error {
 	}
 
 	// HLS
+
+	if conf.WS && conf.WSAddress == "" {
+		return fmt.Errorf("'wsAddress' must be set when WebSocket output is enabled")
+	}
 
 	if conf.HLS {
 		if conf.HLSAddress == "" {
