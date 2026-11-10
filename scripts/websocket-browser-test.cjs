@@ -12,7 +12,7 @@ async function main() {
   let serverLog = '';
   fs.mkdirSync('tmp/ws-browser-results', { recursive: true });
   fs.writeFileSync('tmp/ws-browser.yml', 'rtspTransports: [tcp]\nrtmp: false\nhls: false\nwebrtc: false\nsrt: false\nmoq: false\nws: true\nwsAllowOrigins: [http://127.0.0.1:8895]\npaths:\n  all_others:\n');
-  const server = spawn('./binaries/mediamtx-linux-amd64', ['tmp/ws-browser.yml']);
+  const server = spawn('./binaries/tdt-media-stream-linux-amd64', ['tmp/ws-browser.yml']);
   children.push(server);
   server.stdout.on('data', b => { serverLog += b; });
   server.stderr.on('data', b => { serverLog += b; });

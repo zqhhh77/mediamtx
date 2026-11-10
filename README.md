@@ -1,23 +1,12 @@
-<h1 align="center">
-  <a href="https://mediamtx.org">
-    <img src="logo.png" alt="MediaMTX">
-  </a>
+# tdt-media-stream
 
-  <br>
-  <br>
+[![WebSocket build and tests](https://github.com/zqhhh77/mediamtx/actions/workflows/websocket.yml/badge.svg?branch=feat%2Fwebsocket-output)](https://github.com/zqhhh77/mediamtx/actions/workflows/websocket.yml)
 
-[![Website](https://img.shields.io/badge/website-mediamtx.org-1c94b5)](https://mediamtx.org)
-[![Test](https://github.com/bluenviron/mediamtx/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/bluenviron/mediamtx/actions/workflows/test.yml?query=branch%3Amain)
-[![Lint](https://github.com/bluenviron/mediamtx/actions/workflows/lint.yml/badge.svg?branch=main)](https://github.com/bluenviron/mediamtx/actions/workflows/lint.yml?query=branch%3Amain)
-[![CodeCov](https://codecov.io/gh/bluenviron/mediamtx/branch/main/graph/badge.svg)](https://app.codecov.io/gh/bluenviron/mediamtx/tree/main)
-[![Release](https://img.shields.io/github/v/release/bluenviron/mediamtx)](https://github.com/bluenviron/mediamtx/releases)
-[![Docker Hub](https://img.shields.io/badge/docker-bluenviron/mediamtx-blue)](https://hub.docker.com/r/bluenviron/mediamtx)
+**tdt-media-stream** is TDT's live media server and proxy for publishing, sharing and reading real-time video and audio streams. It is based on [MediaMTX](https://github.com/bluenviron/mediamtx), with an additional H.264/H.265 encoded video output over WebSocket.
 
-</h1>
+Publish through RTSP and let multiple viewers read the same shared path through WebRTC, HLS, RTSP or WebSocket. See the [WebSocket guide](docs/websocket.md) and [browser verification page](docs/websocket-player.html).
 
-<br>
-
-_MediaMTX_ is a ready-to-use and zero-dependency live media server and media proxy that allows to publish, read, proxy, record and playback real-time video and audio streams. It has been conceived as a "media router" that routes media streams from one end to the other, with a focus on efficiency and portability.
+GitHub Actions builds `tdt-media-stream-linux-amd64` and `tdt-media-stream-windows-amd64.exe`. The existing configuration filename `mediamtx.yml`, `MTX_` environment variables and read hooks are supported. Build and playback validation run in Actions.
 
 <div align="center">
 
@@ -29,7 +18,7 @@ _MediaMTX_ is a ready-to-use and zero-dependency live media server and media pro
 <h3>Features</h3>
 
 - [Publish streams](https://mediamtx.org/docs/features/publish-and-read) to the server with Media-over-QUIC, SRT, WebRTC, RTSP, RTMP, HLS, MPEG-TS, RTP, using FFmpeg, GStreamer, OBS Studio, Python , Golang, Unity, Web browsers, Raspberry Pi Cameras and more.
-- [Read streams](https://mediamtx.org/docs/features/publish-and-read) from the server with Media-over-QUIC, SRT, WebRTC, RTSP, RTMP, HLS, using FFmpeg, GStreamer, VLC, OBS Studio, Python , Golang, Unity, Web browsers and more.
+- [Read streams](https://mediamtx.org/docs/features/publish-and-read) from the server with Media-over-QUIC, SRT, WebRTC, RTSP, RTMP, HLS and [WebSocket](docs/websocket.md), using FFmpeg, GStreamer, VLC, OBS Studio, Python , Golang, Unity, Web browsers and more.
 - Streams are automatically converted from a protocol to another
 - Serve several streams at once in separate paths
 - Reload the configuration without disconnecting existing clients (hot reloading)

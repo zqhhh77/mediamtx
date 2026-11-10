@@ -67,13 +67,13 @@ jobs:
               + 'Checksums of binaries are also published in a public blockchain by using [GitHub Attestations](https://docs.github.com/en/actions/concepts/security/artifact-attestations), and they can be verified by running:\n'
               + `\n`
               + '```\n'
-              + `ls mediamtx_* | xargs -L1 gh attestation verify --repo bluenviron/mediamtx\n`
+              + `ls tdt-media-stream_* | xargs -L1 gh attestation verify --repo ${owner}/${repo}\n`
               + '```\n'
               + `\n`
               + 'You can verify checksums of binaries by downloading `checksums.sha256` and running:\n'
               + `\n`
               + '```\n'
-              + `cat checksums.sha256 | grep "$(ls mediamtx_*)" | sha256sum --check\n`
+              + `cat checksums.sha256 | grep "$(ls tdt-media-stream_*)" | sha256sum --check\n`
               + '```\n'
               + `\n`;
 

@@ -1,6 +1,6 @@
 # WebSocket 编码视频输出
 
-在现有 RTSP 发布、WebRTC 和 HLS 之外，新增 MiBeeNvr 视频协议兼容的 WebSocket 读取出口。直接订阅 MediaMTX 的共享 path，不另建 RTSP 拉流客户端，不解码、不转码。默认关闭。
+在现有 RTSP 发布、WebRTC 和 HLS 之外，新增 MiBeeNvr 视频协议兼容的 WebSocket 读取出口。直接订阅 tdt-media-stream 的共享 path，不另建 RTSP 拉流客户端，不解码、不转码。默认关闭。
 
 ```yaml
 ws: true
@@ -12,11 +12,11 @@ paths:
 
 发布端继续推送 `rtsp://主机:8554/camera/001`。观看端使用 `ws://主机:8894/camera/001`，同一路径可以同时通过 WebRTC、HLS、RTSP、WS 读取。多级目录原样保留。环境变量为 `MTX_WS=true`、`MTX_WSADDRESS=:8894`、`MTX_WSALLOWORIGINS=https://player.example.com`；配置文件和现有配置 API 的修改会重建 WS 监听器并关闭旧连接。
 
-每个 WS 连接注册为现有 path 的一个 reader，复用 read 权限、按需源、最大读取者限制、`runOnRead` / `runOnUnread`。`MTX_READER_TYPE=wsSession`，`MTX_READER_ID` 为连接 UUID。path API 的 readers 会显示此类型；没有新增独立 WS 会话管理 API。原本仅匹配 `webRTCSession` 的外部关键帧脚本需要自行适配，MediaMTX 不调用厂商 SDK。
+每个 WS 连接注册为现有 path 的一个 reader，复用 read 权限、按需源、最大读取者限制、`runOnRead` / `runOnUnread`。`MTX_READER_TYPE=wsSession`，`MTX_READER_ID` 为连接 UUID。path API 的 readers 会显示此类型；没有新增独立 WS 会话管理 API。原本仅匹配 `webRTCSession` 的外部关键帧脚本需要自行适配，tdt-media-stream 不调用厂商 SDK。
 
 ## 鉴权与反向代理
 
-支持现有 HTTP Basic / Bearer 请求头；浏览器原生 WebSocket 可用 URL 查询参数 `user` / `pass` 或 `token`。例如 `new WebSocket('wss://video.example.com/ws/camera/001?token=' + encodeURIComponent(token))`。外部 HTTP 鉴权收到 `protocol=ws`、`action=read`，凭据进入原有认证流程；JWT 的过期时间也会终止会话。MediaMTX 的 HTTP 调试日志会隐去上述查询凭据；代理也应避免记录带凭据的完整 URL。查询仍按原有规则传给鉴权服务和读取钩子，钩子应按敏感信息处理。
+支持现有 HTTP Basic / Bearer 请求头；浏览器原生 WebSocket 可用 URL 查询参数 `user` / `pass` 或 `token`。例如 `new WebSocket('wss://video.example.com/ws/camera/001?token=' + encodeURIComponent(token))`。外部 HTTP 鉴权收到 `protocol=ws`、`action=read`，凭据进入原有认证流程；JWT 的过期时间也会终止会话。tdt-media-stream 的 HTTP 调试日志会隐去上述查询凭据；代理也应避免记录带凭据的完整 URL。查询仍按原有规则传给鉴权服务和读取钩子，钩子应按敏感信息处理。
 
 默认仅允许同源浏览器或不带 Origin 的非浏览器客户端；跨域播放器应显式填写 `wsAllowOrigins`，匹配方式与现有 HTTP 输出相同。反向代理应保留 Host / Origin，不使用转发头替代鉴权 IP，WS 看到的是直接连接方地址。TLS 由代理终止：
 

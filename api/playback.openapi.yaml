@@ -2,8 +2,8 @@ openapi: 3.0.0
 
 info:
   version: 1.0.0
-  title: MediaMTX Playback API
-  description: Playback API of MediaMTX, used to list and retrieve recorded time spans.
+  title: tdt-media-stream Playback API
+  description: Playback API of tdt-media-stream, used to list and retrieve recorded time spans.
   license:
     name: MIT
     url: https://opensource.org/licenses/MIT

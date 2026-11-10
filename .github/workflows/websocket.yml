@@ -28,11 +28,17 @@ jobs:
       - name: Build Linux and Windows binaries
         run: |
           mkdir -p binaries
-          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -o binaries/mediamtx-linux-amd64 .
-          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -o binaries/mediamtx-windows-amd64.exe .
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -o binaries/tdt-media-stream-linux-amd64 .
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -o binaries/tdt-media-stream-windows-amd64.exe .
           cp mediamtx.yml binaries/
           cp docs/websocket.md binaries/
           cp docs/websocket-player.html binaries/
+      - name: Check program name
+        run: ./binaries/tdt-media-stream-linux-amd64 --help | grep tdt-media-stream
+      - uses: actions/upload-artifact@v7
+        with:
+          name: tdt-media-stream-websocket
+          path: binaries/
       - name: Install browser validation tools
         run: |
           command -v ffmpeg || (sudo apt-get update && sudo apt-get install -y ffmpeg)
@@ -40,10 +46,6 @@ jobs:
           tmp/ws-browser/node_modules/.bin/playwright install --with-deps chromium
       - name: Validate real RTSP input and browser video
         run: node scripts/websocket-browser-test.cjs
-      - uses: actions/upload-artifact@v7
-        with:
-          name: mediamtx-websocket
-          path: binaries/
       - uses: actions/upload-artifact@v7
         if: always()
         with:

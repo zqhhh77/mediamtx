@@ -197,7 +197,7 @@ var cli struct {
 	ValidateConf string `help:"check whether a configuration file is valid" placeholder:"path"`
 }
 
-// Core is an instance of MediaMTX.
+// Core is an instance of tdt-media-stream.
 type Core struct {
 	ctx             context.Context
 	ctxCancel       func()
@@ -247,7 +247,7 @@ type Core struct {
 // New allocates a Core.
 func New(args []string) (*Core, bool) {
 	parser, err := kong.New(&cli,
-		kong.Description("MediaMTX "+string(version)+", "+runtime.GOOS+", "+getArch()),
+		kong.Description("tdt-media-stream "+string(version)+", "+runtime.GOOS+", "+getArch()),
 		kong.UsageOnError(),
 		kong.ValueFormatter(func(value *kong.Value) string {
 			switch value.Name {
@@ -597,7 +597,7 @@ func (p *Core) createResources(initial bool) error {
 	}
 
 	if initial {
-		p.Log(logger.Info, "MediaMTX %s, %s, %s", string(version), runtime.GOOS, getArch())
+		p.Log(logger.Info, "tdt-media-stream %s, %s, %s", string(version), runtime.GOOS, getArch())
 
 		if p.confPath != "" {
 			a, _ := filepath.Abs(p.confPath)

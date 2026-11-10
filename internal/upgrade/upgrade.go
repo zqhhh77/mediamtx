@@ -17,9 +17,9 @@ import (
 )
 
 const (
-	gitRepo     = "https://github.com/bluenviron/mediamtx"
-	downloadURL = "https://github.com/bluenviron/mediamtx/releases/download/%s/mediamtx_%s_%s_%s.%s"
-	executable  = "mediamtx"
+	gitRepo     = "https://github.com/zqhhh77/mediamtx"
+	downloadURL = "https://github.com/zqhhh77/mediamtx/releases/download/%s/tdt-media-stream_%s_%s_%s.%s"
+	executable  = "tdt-media-stream"
 )
 
 var (
@@ -100,6 +100,6 @@ func Upgrade(version, arch string) error {
 		return err
 	}
 
-	fmt.Printf("MediaMTX upgraded successfully from %v to %v.\n", "v"+current.String(), "v"+latest.String())
+	fmt.Printf("tdt-media-stream upgraded successfully from %v to %v.\n", "v"+current.String(), "v"+latest.String())
 	return nil
 }

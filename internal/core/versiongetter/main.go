@@ -120,7 +120,7 @@ func tagFromGit() error {
 }
 
 func do() error {
-	log.Println("getting mediamtx version...")
+	log.Println("getting tdt-media-stream version...")
 
 	err := tagFromGit()
 	if err != nil {
