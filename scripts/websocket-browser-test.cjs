@@ -30,6 +30,13 @@ async function main() {
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
   try {
+    const startup = Date.now();
+    while (!serverLog.includes('[WS] listener opened')) {
+      if (server.exitCode !== null || Date.now() - startup > 15000) {
+        throw Error(`Video server not ready: ${serverLog}`);
+      }
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
     for (const codec of ['h264', 'h265']) {
       let ffmpegLog = '';
       const ffmpeg = spawn('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-re', '-f', 'lavfi', '-i',
