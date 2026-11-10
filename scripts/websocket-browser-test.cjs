@@ -1,6 +1,6 @@
 // Run against the Actions-built binary; no application build or npm dependency is needed locally.
 const { chromium } = require('../tmp/ws-browser/node_modules/playwright');
-const { spawn } = require('node:child_process');
+const { spawn, spawnSync } = require('node:child_process');
 const fs = require('node:fs');
 const http = require('node:http');
 const assert = require('node:assert/strict');
@@ -46,6 +46,7 @@ async function main() {
         socket.binaryType = 'arraybuffer';
         const timer = setTimeout(() => { socket.close(); reject(Error('wire timeout')); }, 8000);
         let ci, firstFrame, frames = 0, previousPTS, reordered = false;
+        const nalus = [];
         socket.onerror = () => reject(Error('wire connection failed'));
         socket.onmessage = ({ data }) => {
           try {
@@ -63,9 +64,13 @@ async function main() {
               previousPTS = pts;
               const count = view.getUint16(10); let offset = 12;
               if (!count) throw Error('empty AU');
-              for (let i = 0; i < count; i++) { const size = view.getUint32(offset); offset += 4 + size; if (!size || offset > data.byteLength) throw Error('bad NALU length'); }
+              for (let i = 0; i < count; i++) {
+                const size = view.getUint32(offset); offset += 4;
+                if (!size || offset + size > data.byteLength) throw Error('bad NALU length');
+                nalus.push(Array.from(new Uint8Array(data, offset, size))); offset += size;
+              }
               if (offset !== data.byteLength) throw Error('unexpected frame tail');
-              if (++frames === 40) { clearTimeout(timer); socket.close(); resolve({ frames, reordered, ci, firstFrame }); }
+              if (++frames === 40) { clearTimeout(timer); socket.close(); resolve({ frames, reordered, ci, firstFrame, nalus }); }
             }
           } catch (e) { clearTimeout(timer); socket.close(); reject(e); }
         };
@@ -73,6 +78,13 @@ async function main() {
       assert(wire.reordered, `${codec}: B-frame PTS ordering was not exercised`);
       fs.writeFileSync(`tmp/ws-browser-results/${codec}-codec.bin`, Buffer.from(wire.ci));
       fs.writeFileSync(`tmp/ws-browser-results/${codec}-frame.bin`, Buffer.from(wire.firstFrame));
+      const streamFile = `tmp/ws-browser-results/${codec}.${codec}`;
+      fs.writeFileSync(streamFile, Buffer.concat(wire.nalus.flatMap(n => [Buffer.from([0, 0, 0, 1]), Buffer.from(n)])));
+      const decode = spawnSync('ffmpeg', ['-hide_banner', '-f', codec === 'h264' ? 'h264' : 'hevc', '-i', streamFile, '-f', 'null', '-'], { encoding: 'utf8', timeout: 30000 });
+      fs.writeFileSync(`tmp/ws-browser-results/${codec}-decode.log`, decode.stderr || '');
+      assert.equal(decode.status, 0, decode.stderr);
+      const decodedFrames = Number([...decode.stderr.matchAll(/frame=\s*(\d+)/g)].at(-1)?.[1]);
+      assert(decodedFrames >= 25, `${codec}: only ${decodedFrames} frames decoded from WS output`);
       await page.locator('#url').fill(`ws://127.0.0.1:8894/test/${codec}`);
       await page.locator('#play').click();
       await page.waitForFunction(() => /已显示 (\d+) 帧/.test(document.querySelector('#status').textContent) || /失败/.test(document.querySelector('#status').textContent), { timeout: 10000 });
@@ -84,7 +96,7 @@ async function main() {
         await page.screenshot({ path: `tmp/ws-browser-results/${codec}.png` });
       }
       if (codec === 'h264') assert(supported, status);
-      report.push({ codec, protocolFrames: wire.frames, bFramePTSReordered: wire.reordered, webCodecsRendered: supported, status });
+      report.push({ codec, protocolFrames: wire.frames, ffmpegDecodedFrames: decodedFrames, bFramePTSReordered: wire.reordered, webCodecsRendered: supported, status });
       await page.locator('#stop').click();
       ffmpeg.kill('SIGTERM');
     }

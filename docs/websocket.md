@@ -52,6 +52,6 @@ codec 值 4 为 H.264，5 为 H.265。profile/level 与参考服务一致，分�
 
 使用 `websocket-player.html`，通过本机 localhost HTTP 服务或 HTTPS 打开，在输入框填入 WS/WSS 地址。它使用浏览器 WebCodecs，显示解码帧数及错误；不包含 H.265 WASM 软件解码器。浏览器不支持 H.265 时应使用已有 MiBeeNvr 播放器的 WASM 路径。普通 `<video src="ws://...">` 不能解码此格式。
 
-GitHub Actions 的 `websocket` workflow 执行竞态测试、现有输出服务器回归，生成 Linux amd64 与 Windows amd64 二进制及本说明和验证页。集成测试以 RTSP 发布，核对三个 WS 共享读取者、H.264/H.265 首包/首帧、100 次加入退出及源退出 EOS。请以实际 Actions 运行结果判定构建是否通过。
+GitHub Actions 的 `websocket` workflow 执行竞态测试、现有输出服务器回归，生成 `tdt-media-stream-linux-amd64` 与 `tdt-media-stream-windows-amd64.exe` 及本说明和验证页。集成测试以 RTSP 发布，核对三个 WS 共享读取者、H.264/H.265 首包/首帧、100 次加入退出及源退出 EOS。浏览器测试还保存真实 WS 消息，将 NALU 还原为 Annex B 后用 FFmpeg 验证连续解码；这是 CI 验证工具，服务端输出不依赖 FFmpeg。请以实际 Actions 运行结果判定构建是否通过。
 
 现场验收仍需：真实摄像机、MiBeeNvr 解析/硬解/WASM 分别验证、同源与外部鉴权、慢连接与 WebRTC/HLS 同时观看、至少 30 分钟播放、首帧 10 次中位数/P95 和可靠画面时钟延迟。单元/集成测试不等于设备或延迟验收，也不预先承诺 WS 比 WebRTC 快。
