@@ -173,7 +173,7 @@ func (s *Server) serveHTTP(w http.ResponseWriter, r *http.Request) {
 	defer res.Path.RemoveReader(defs.PathRemoveReaderReq{Author: sx})
 	// The cloned output description contains current parameters; original formats select the subscription.
 	desc := res.Stream.OutDescCopy()
-	reader := &stream.Reader{Parent: sx, CloseOnQueueFull: true}
+	reader := &stream.Reader{Parent: sx}
 	var encoder *videoEncoder
 	var mediaIndex, formatIndex int
 	for mi, medi := range res.Stream.OrigDesc.Medias {

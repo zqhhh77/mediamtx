@@ -1,6 +1,6 @@
 services:
   tdt-media-stream:
-    image: ghcr.io/zqhhh77/tdt-media-stream:1.0.0
+    image: ghcr.io/zqhhh77/tdt-media-stream:1.0.1
     restart: unless-stopped
     ports:
       - "8554:8554"       # RTSP over TCP

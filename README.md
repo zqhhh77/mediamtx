@@ -10,7 +10,7 @@ Publish through RTSP and let multiple viewers read the same shared path through 
 
 GitHub Actions builds `tdt-media-stream-linux-amd64` and `tdt-media-stream-windows-amd64.exe`. The existing configuration filename `mediamtx.yml`, `MTX_` environment variables and read hooks are supported. Build and playback validation run in Actions.
 
-Docker images: `ghcr.io/zqhhh77/tdt-media-stream:1.0.0` and `:latest` (Linux AMD64 / ARM64). Download `docker-compose.yml` and `mediamtx.yml` from the [Release](https://github.com/zqhhh77/mediamtx/releases) into the same directory, then run `docker compose up -d`. The image enables WebSocket on port 8894 by default. See the [v1.0.0 release notes](docs/releases/v1.0.0.md).
+Docker images: `ghcr.io/zqhhh77/tdt-media-stream:1.0.1` and `:latest` (Linux AMD64 / ARM64). Download `docker-compose.yml` and `mediamtx.yml` from the [Release](https://github.com/zqhhh77/mediamtx/releases) into the same directory, then run `docker compose up -d`. The image enables WebSocket on port 8894 by default. See the [v1.0.1 release notes](docs/releases/v1.0.1.md).
 
 <div align="center">
 

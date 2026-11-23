@@ -1,32 +1,37 @@
 package stream
 
 import (
-	"sync"
 	"testing"
-	"time"
+	"testing/synctest"
 
 	"github.com/stretchr/testify/require"
 )
 
-func TestReaderCloseOnQueueFull(t *testing.T) {
-	r := &Reader{CloseOnQueueFull: true, queueSize: 1}
-	r.start()
-	defer r.stop()
-	entered, release := make(chan struct{}), make(chan struct{})
-	r.push(func() error { close(entered); <-release; return nil })
-	<-entered
-	r.push(func() error { t.Error("queued frame must not be sent after overflow"); return nil })
-	var writers sync.WaitGroup
-	for range 8 {
-		writers.Go(func() { r.push(func() error { t.Error("overflow frame must not be sent"); return nil }) })
-	}
-	writers.Wait()
-	close(release)
-	select {
-	case err := <-r.Error():
-		require.EqualError(t, err, "reader queue is full")
-	case <-time.After(time.Second):
-		t.Fatal("overflow did not terminate reader")
-	}
-	require.Zero(t, r.OutboundFramesDiscarded())
+func TestReaderDropsNewFrameOnQueueFull(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		r := &Reader{Parent: nilLogger{}, queueSize: 1}
+		r.start()
+		defer r.stop()
+
+		resume := make(chan struct{})
+		r.push(func() error { <-resume; return nil })
+		synctest.Wait()
+
+		var delivered []int
+		pushFrame := func(id int) {
+			r.push(func() error {
+				delivered = append(delivered, id)
+				return nil
+			})
+		}
+		pushFrame(1)
+		pushFrame(2)
+		close(resume)
+		synctest.Wait()
+		pushFrame(3)
+		synctest.Wait()
+
+		require.Equal(t, []int{1, 3}, delivered)
+		require.Equal(t, uint64(1), r.OutboundFramesDiscarded())
+	})
 }
